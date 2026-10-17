@@ -1,0 +1,298 @@
+[
+  {
+    "options": {
+      "seed": "/",
+      "height": 6400
+    },
+    "placements": [
+      {
+        "index": 0,
+        "band": 0,
+        "x": 267.82,
+        "y": 23.18,
+        "size": 784.83,
+        "rotation": 193.71,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 435.58
+      },
+      {
+        "index": 1,
+        "band": 1,
+        "x": 850.4,
+        "y": 1286.65,
+        "size": 740.95,
+        "rotation": 118.16,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 384.26
+      },
+      {
+        "index": 2,
+        "band": 2,
+        "x": 111.26,
+        "y": 2388.7,
+        "size": 882.92,
+        "rotation": 132.05,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 461.93
+      },
+      {
+        "index": 3,
+        "band": 2,
+        "x": 1421.03,
+        "y": 2661.65,
+        "size": 1172.66,
+        "rotation": 35.82,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 628.22
+      },
+      {
+        "index": 4,
+        "band": 3,
+        "x": 317.46,
+        "y": 3723.45,
+        "size": 899.34,
+        "rotation": 161.29,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 459.04
+      },
+      {
+        "index": 5,
+        "band": 4,
+        "x": 1404.1,
+        "y": 4477.15,
+        "size": 704.5,
+        "rotation": 165.95,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 369
+      },
+      {
+        "index": 6,
+        "band": 5,
+        "x": 43.34,
+        "y": 5043.97,
+        "size": 844.1,
+        "rotation": 313.43,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 470.23
+      },
+      {
+        "index": 7,
+        "band": 5,
+        "x": 1378.07,
+        "y": 5876.62,
+        "size": 856.96,
+        "rotation": 297.61,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 468.69
+      },
+      {
+        "index": 8,
+        "band": 6,
+        "x": 80.12,
+        "y": 6535.79,
+        "size": 651.1,
+        "rotation": 187.39,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 389.6
+      }
+    ]
+  },
+  {
+    "options": {
+      "seed": "/meta/2026-09-14",
+      "height": 3000,
+      "width": 1200,
+      "fill": {
+        "sequence": [
+          "#fde4ec",
+          "#eef0fb"
+        ]
+      }
+    },
+    "placements": [
+      {
+        "index": 0,
+        "band": 0,
+        "x": 248.03,
+        "y": 3.73,
+        "size": 848.32,
+        "rotation": 313.53,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 439.32
+      },
+      {
+        "index": 1,
+        "band": 0,
+        "x": 1190.33,
+        "y": 872.71,
+        "size": 983.8,
+        "rotation": 9.68,
+        "opacity": 0.4,
+        "slot": 1,
+        "radius": 511.25
+      },
+      {
+        "index": 2,
+        "band": 1,
+        "x": 117.81,
+        "y": 1438.44,
+        "size": 707.14,
+        "rotation": 201.59,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 423.96
+      },
+      {
+        "index": 3,
+        "band": 2,
+        "x": 1161.02,
+        "y": 2142.21,
+        "size": 900.8,
+        "rotation": 179.5,
+        "opacity": 0.4,
+        "slot": 1,
+        "radius": 458.81
+      },
+      {
+        "index": 4,
+        "band": 3,
+        "x": 27.79,
+        "y": 3007.39,
+        "size": 635.79,
+        "rotation": 106.59,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 331.89
+      }
+    ]
+  },
+  {
+    "options": {
+      "seed": "relicsurge",
+      "height": 5000,
+      "shapes": {
+        "roundness": 0,
+        "points": {
+          "even": [
+            4,
+            7
+          ]
+        }
+      },
+      "layout": {
+        "density": 2
+      }
+    },
+    "placements": [
+      {
+        "index": 0,
+        "band": 0,
+        "x": 284.27,
+        "y": 53.58,
+        "size": 668.98,
+        "rotation": 307.41,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 372.14
+      },
+      {
+        "index": 1,
+        "band": 0,
+        "x": 1255.6,
+        "y": 463.94,
+        "size": 891.7,
+        "rotation": 251.84,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 506.71
+      },
+      {
+        "index": 2,
+        "band": 1,
+        "x": 207.48,
+        "y": 1124.09,
+        "size": 771.65,
+        "rotation": 197.4,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 399.67
+      },
+      {
+        "index": 3,
+        "band": 1,
+        "x": 1239.01,
+        "y": 1802.93,
+        "size": 1137.84,
+        "rotation": 202.21,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 665.17
+      },
+      {
+        "index": 4,
+        "band": 2,
+        "x": 76.51,
+        "y": 2640.04,
+        "size": 859.61,
+        "rotation": 306.96,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 478.39
+      },
+      {
+        "index": 5,
+        "band": 3,
+        "x": 1129.6,
+        "y": 3169.9,
+        "size": 910.25,
+        "rotation": 211.06,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 455.34
+      },
+      {
+        "index": 6,
+        "band": 4,
+        "x": 87.35,
+        "y": 4090.29,
+        "size": 1078.94,
+        "rotation": 262.1,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 670.04
+      },
+      {
+        "index": 7,
+        "band": 4,
+        "x": 1433.85,
+        "y": 4546.13,
+        "size": 881.57,
+        "rotation": 230.99,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 529.63
+      },
+      {
+        "index": 8,
+        "band": 5,
+        "x": 573.11,
+        "y": 5528.37,
+        "size": 1087.71,
+        "rotation": 170.04,
+        "opacity": 0.4,
+        "slot": 0,
+        "radius": 583.02
+      }
+    ]
+  }
+]
