@@ -86,6 +86,7 @@ import { presets } from "blobscape";
 | `polygons` | Sharp angular shards, 600–1200px, about one per 800px of height. |
 | `pebbles` | Polygons with softened corners, a little smaller and closer. |
 | `confetti` | Many small shapes: a light texture rather than accents. |
+| `bubbles` | Near-circles of mixed sizes, 120–520px, closer together than blobs. |
 
 ## Options
 

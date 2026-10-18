@@ -36,6 +36,13 @@ export const presets = {
     rotation: { random: [0, 360] },
     layout: { minDistance: 140, minGap: 40, density: 14 },
   },
+  /** Near-circles of mixed sizes, 120–520px, closer together than blobs. */
+  bubbles: {
+    shapes: { points: 12, irregularity: { random: [0, 0.06] }, roundness: 1 },
+    size: { random: [120, 520] },
+    rotation: { random: [0, 360] },
+    layout: { minDistance: 160, minGap: 40, density: 7 },
+  },
 } satisfies Record<string, Preset>;
 
 export type PresetName = keyof typeof presets;
