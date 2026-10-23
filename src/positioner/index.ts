@@ -19,7 +19,7 @@ export interface LayoutOptions {
   minDistance?: number;
   /** Hard minimum gap between blob edges (bounding circles), in px. */
   minGap?: number;
-  /** Target blobs per 1000px of height. The minimums above are never broken to meet it. */
+  /** Target blobs per 1000px of height; 0 packs as densely as the minimums allow. The minimums above are never broken to meet it. */
   density?: number;
   /** Height of each generation band, in px. */
   bandHeight?: number;
@@ -80,6 +80,11 @@ export const PLACE_DEFAULTS = {
 // Candidates tried per expected blob in a band; enough to saturate the spacing rules.
 const CANDIDATES_PER_BLOB = 24;
 const MIN_CANDIDATES = 32;
+// Density 0 budgets from the hard rules: SATURATE × the blobs they could fit, since random
+// candidates need several times more tries to fill the last gaps. The cap keeps tiny blobs
+// with no gaps from exploding the budget.
+const SATURATE = 4;
+const MAX_CANDIDATES = 20_000;
 
 /**
  * Converts density into a soft center spacing D, with about PACKING / D² blobs
@@ -99,42 +104,53 @@ export interface BlobSpec {
 export interface BlobSamplers {
   /** Size and shape for a blob index (what spacing needs). */
   spec: (index: number) => BlobSpec;
+  size: (index: number) => number;
+  shape: (index: number) => Shape;
   rotation: (index: number) => number;
   opacity: (index: number) => number;
   slot: (index: number) => number;
   palette: Fill[];
   /** Upper bound on any blob's radius in px. */
   maxRadius: number;
+  /** Lower bound on any blob's radius in px. */
+  minRadius: number;
 }
 
 /** Per-blob property samplers, all keyed by blob index. Shared by place() and explicit placements. */
 export function blobSamplers(options: Omit<PlaceOptions, "seed" | "height">, root: Random): BlobSamplers {
   const sizeDist = options.size ?? PLACE_DEFAULTS.size;
   const size = numberSampler(sizeDist, root.fork("size"));
+  // Check the distribution's bounds, not each sample, so a bad range fails on every page rather than on unlucky seeds.
+  positive("size", minValue(sizeDist));
   const fill = fillSampler(options.fill ?? PLACE_DEFAULTS.fill, root.fork("fill"));
   const shapes = shapeSampler(options.shapes ?? {}, root);
   return {
     spec: (index) => {
-      const s = positive("size", size(index));
+      const s = size(index);
       const shape = shapes.at(index);
       return { size: s, shape, radius: shape.radius * s };
     },
+    size,
+    shape: shapes.at,
     rotation: numberSampler(options.rotation ?? PLACE_DEFAULTS.rotation, root.fork("rotation")),
     opacity: numberSampler(options.opacity ?? PLACE_DEFAULTS.opacity, root.fork("opacity")),
     slot: fill.slot,
     palette: fill.palette,
     maxRadius: maxValue(sizeDist) * shapes.maxRadius,
+    minRadius: minValue(sizeDist) * shapes.minRadius,
   };
 }
 
 export function place(options: PlaceOptions): Layout {
   const width = positive("width", options.width ?? PLACE_DEFAULTS.width);
   const height = nonNegative("height", options.height);
-  const layout = { ...PLACE_DEFAULTS.layout, ...options.layout };
-  const minDistance = nonNegative("minDistance", layout.minDistance);
-  const minGap = nonNegative("minGap", layout.minGap);
-  const density = nonNegative("density", layout.density);
-  const bandHeight = positive("bandHeight", layout.bandHeight);
+  // ?? per key, not a spread: { density: undefined } keeps the default, like every other option.
+  const layout = options.layout ?? {};
+  const defaults = PLACE_DEFAULTS.layout;
+  const minDistance = nonNegative("minDistance", layout.minDistance ?? defaults.minDistance);
+  const minGap = nonNegative("minGap", layout.minGap ?? defaults.minGap);
+  const density = nonNegative("density", layout.density ?? defaults.density);
+  const bandHeight = positive("bandHeight", layout.bandHeight ?? defaults.bandHeight);
 
   const root = createRandom(options.seed);
   const blobs = blobSamplers(options, root);
@@ -142,7 +158,10 @@ export function place(options: PlaceOptions): Layout {
   const perBand = (density * bandHeight) / 1000;
   // Soft spacing from density; 0 density means "as dense as the hard rules allow".
   const spacing = perBand > 0 ? Math.sqrt((PACKING * width * bandHeight) / perBand) : 0;
-  const candidatesPerBand = Math.max(MIN_CANDIDATES, Math.ceil(perBand * CANDIDATES_PER_BLOB));
+  // At density 0 the hard rules set the spacing, so budget for as many blobs as they could fit.
+  const hardSpacing = Math.max(minDistance, 2 * blobs.minRadius + minGap);
+  const target = perBand > 0 ? perBand : hardSpacing > 0 ? (SATURATE * PACKING * width * bandHeight) / hardSpacing ** 2 : Infinity;
+  const candidatesPerBand = Math.min(MAX_CANDIDATES, Math.max(MIN_CANDIDATES, Math.ceil(target * CANDIDATES_PER_BLOB)));
 
   // Blobs below `height` can still reach up into view, so keep generating
   // bands until no further blob could.
@@ -218,6 +237,12 @@ function maxValue(dist: NumberDist): number {
   return Math.max(a, b);
 }
 
+function minValue(dist: NumberDist): number {
+  if (typeof dist === "number") return dist;
+  const [a, b] = "random" in dist ? dist.random : dist.even;
+  return Math.min(a, b);
+}
+
 // ── Width modes ──────────────────────────────────────────────────────────
 
 export type WidthMode = "fixed" | "fluid";
@@ -231,12 +256,12 @@ export function toContainerX(x: number, canvasWidth: number, containerWidth: num
   return mode === "fluid" ? (x * containerWidth) / canvasWidth : x + (containerWidth - canvasWidth) / 2;
 }
 
-function nonNegative(name: string, value: number): number {
+export function nonNegative(name: string, value: number): number {
   if (!Number.isFinite(value) || value < 0) throw new RangeError(`blobscape: ${name} must be a finite number >= 0, got ${value}`);
   return value;
 }
 
-function positive(name: string, value: number): number {
+export function positive(name: string, value: number): number {
   if (!Number.isFinite(value) || value <= 0) throw new RangeError(`blobscape: ${name} must be a finite number > 0, got ${value}`);
   return value;
 }

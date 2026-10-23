@@ -8,7 +8,8 @@
  */
 import type { Outline, Point, Segment } from "./index";
 
-const NUMBER = /^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/;
+// Sticky, so the scanner matches in place instead of copying the rest of the path for every token.
+const NUMBER = /[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/y;
 
 class Scanner {
   private i = 0;
@@ -33,17 +34,24 @@ class Scanner {
     return undefined;
   }
 
-  hasNumber(): boolean {
+  private match(): string | undefined {
     this.skip();
-    return NUMBER.test(this.src.slice(this.i));
+    NUMBER.lastIndex = this.i;
+    return NUMBER.exec(this.src)?.[0];
+  }
+
+  hasNumber(): boolean {
+    return this.match() !== undefined;
   }
 
   number(): number {
-    this.skip();
-    const m = NUMBER.exec(this.src.slice(this.i));
-    if (!m) throw new SyntaxError(`blobscape: expected a number at position ${this.i} in path "${this.src}"`);
-    this.i += m[0].length;
-    return Number(m[0]);
+    const m = this.match();
+    if (m === undefined) throw new SyntaxError(`blobscape: expected a number at position ${this.i} in path "${this.src}"`);
+    const n = Number(m);
+    // "1e400" reads as Infinity, which would give the shape an infinite radius.
+    if (!Number.isFinite(n)) throw new RangeError(`blobscape: number "${m}" at position ${this.i} in path "${this.src}" is out of range`);
+    this.i += m.length;
+    return n;
   }
 
   /** Arc flags may be written without separators ("a1 1 0 011 1"), so read a single digit. */
@@ -172,7 +180,17 @@ export function parsePath(d: string): Outline {
   // Drop an explicit final segment back to the start; closing is implied.
   const last = segments[segments.length - 1];
   if (last?.type === "L" && last.to.x === start.x && last.to.y === start.y) segments.pop();
-  if (segments.length < 2) throw new SyntaxError("blobscape: a user shape needs at least 3 points");
+  // One curve plus the closing edge encloses an area ("M0 0 Q1 1 2 0 Z"); one straight edge doesn't.
+  if (segments.length === 0 || (segments.length === 1 && segments[0]!.type === "L")) {
+    throw new SyntaxError("blobscape: a user shape needs at least 3 points");
+  }
+  // Relative coordinates can still add up past the largest number ("l1e308 0 l1e308 0").
+  for (const seg of segments) {
+    const points = seg.type === "C" ? [seg.c1, seg.c2, seg.to] : seg.type === "Q" ? [seg.control, seg.to] : [seg.to];
+    if (!points.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y))) {
+      throw new RangeError(`blobscape: path "${d}" has coordinates out of range`);
+    }
+  }
   return { start, segments };
 }
 

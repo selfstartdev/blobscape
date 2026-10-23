@@ -43,13 +43,17 @@ export function userShape({ d, viewBox = [0, 0, 1, 1] }: UserShape): Shape {
   }
   const cx = minX + w / 2, cy = minY + h / 2, s = 1 / Math.max(w, h);
   const outline = mapOutline(parsePath(d), (p) => ({ x: (p.x - cx) * s, y: (p.y - cy) * s }));
-  return { ...outline, radius: boundingRadius(outline) };
+  const radius = boundingRadius(outline);
+  if (!Number.isFinite(radius)) throw new RangeError(`blobscape: shape "${d}" has coordinates out of range`);
+  return { ...outline, radius };
 }
 
 export interface ShapeSampler {
   at: (index: number) => Shape;
   /** Upper bound on any shape's radius, in unit-box units. */
   maxRadius: number;
+  /** Lower bound on any shape's radius, in unit-box units. */
+  minRadius: number;
 }
 
 export function shapeSampler(dist: ShapeDist, root: Random): ShapeSampler {
@@ -57,12 +61,13 @@ export function shapeSampler(dist: ShapeDist, root: Random): ShapeSampler {
 
   if (isUserShape(dist)) {
     const shape = userShape(dist);
-    return { at: () => shape, maxRadius: shape.radius };
+    return { at: () => shape, maxRadius: shape.radius, minRadius: shape.radius };
   }
   if (Array.isArray(dist) || isChoiceDist(dist)) {
     const choice = choiceSampler(Array.isArray(dist) ? { even: dist } : dist, random.fork("pick"), "shape");
     const shapes = choice.items.map(userShape); // parse once, up front, so bad paths fail early
-    return { at: (index) => shapes[choice.slot(index)]!, maxRadius: Math.max(...shapes.map((s) => s.radius)) };
+    const radii = shapes.map((s) => s.radius);
+    return { at: (index) => shapes[choice.slot(index)]!, maxRadius: Math.max(...radii), minRadius: Math.min(...radii) };
   }
 
   const points = numberSampler(dist.points ?? SHAPE_DEFAULTS.points, random.fork("points"));
@@ -74,7 +79,8 @@ export function shapeSampler(dist: ShapeDist, root: Random): ShapeSampler {
         { points: points(index), irregularity: irregularity(index), roundness: roundness(index) },
         random.fork("outline", index),
       ),
-    // Generated shapes fit a unit box centered on the origin.
+    // Generated shapes fit a unit box centered on the origin, touching two opposite sides.
     maxRadius: Math.SQRT1_2,
+    minRadius: 0.5,
   };
 }

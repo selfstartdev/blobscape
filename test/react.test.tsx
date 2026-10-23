@@ -9,6 +9,9 @@ import { Blobscape, blobscapeParentStyle, type BlobscapeProps } from "../src/rea
 
 // jsdom has no layout or ResizeObserver: stub both so tests control the measured size.
 let layerSize = { width: 1200, height: 9000 };
+// What getBoundingClientRect reports: the layout size times any transform, and the left edge.
+let rectScale = 1;
+let rectLeft = 0;
 const observers = new Set<() => void>();
 class FakeResizeObserver {
   constructor(private readonly cb: () => void) {}
@@ -22,9 +25,24 @@ class FakeResizeObserver {
 
 beforeEach(() => {
   layerSize = { width: 1200, height: 9000 };
+  rectScale = 1;
+  rectLeft = 0;
   vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(() => layerSize.width);
+  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(() => layerSize.height);
   vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(
-    () => ({ width: layerSize.width, height: layerSize.height, top: 0, left: 0, right: 0, bottom: 0, x: 0, y: 0, toJSON() {} }) as DOMRect,
+    () =>
+      ({
+        width: layerSize.width * rectScale,
+        height: layerSize.height * rectScale,
+        top: 0,
+        left: rectLeft,
+        right: 0,
+        bottom: 0,
+        x: rectLeft,
+        y: 0,
+        toJSON() {},
+      }) as DOMRect,
   );
 });
 
@@ -133,5 +151,63 @@ describe("<Blobscape>", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     await hydrate({ seed: "/ok" });
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  async function mountIn(parentStyle: string, props: BlobscapeProps = { seed: "/m" }) {
+    const container = document.createElement("div");
+    document.body.appendChild(container);
+    const { createRoot } = await import("react-dom/client");
+    await act(async () => {
+      createRoot(container).render(createElement("section", { style: parseStyle(parentStyle) }, createElement(Blobscape, props)));
+    });
+    return container;
+  }
+
+  function parseStyle(css: string): Record<string, string> {
+    return Object.fromEntries(
+      css
+        .split(";")
+        .filter(Boolean)
+        .map((d) => {
+          const [k, v] = d.split(":").map((x) => x.trim());
+          return [k!.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase()), v!];
+        }),
+    );
+  }
+
+  it.each(["position: sticky; top: 0", "position: relative; transform: translateY(0)", "position: relative; opacity: 0.9", "position: fixed"])(
+    "does not warn when the parent already forms a stacking context (%s)",
+    async (css) => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      await mountIn(css);
+      expect(warn).not.toHaveBeenCalled();
+    },
+  );
+
+  it("still warns where there is no `process` global (Vite and other browser builds)", async () => {
+    vi.stubGlobal("process", undefined);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await mountIn("");
+    expect(warn).toHaveBeenCalledOnce();
+  });
+
+  it("measures the layout size, not a size skewed by a transform", async () => {
+    rectScale = 0.95; // mounted mid entrance animation, scale(0.95)
+    const { container } = await hydrate({ seed: "/scaled" });
+    expect(container.querySelector("svg")!.getAttribute("height")).toBe("9000");
+  });
+
+  it("fullBleed spans the viewport even when the parent is off-centre", async () => {
+    rectLeft = 300; // the parent's left edge, e.g. a right-hand column
+    // jsdom has no layout: the containing block is the parent, and the viewport is 1280px wide.
+    vi.spyOn(HTMLElement.prototype, "offsetParent", "get").mockImplementation(function (this: HTMLElement) {
+      return this.parentElement;
+    });
+    vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(1280);
+    const { container } = await hydrate({ seed: "/bleed", fullBleed: true });
+    const layer = container.querySelector<HTMLElement>("[data-blobscape]")!;
+    expect(layer.style.left).toBe("-300px");
+    expect(layer.style.width).toBe("1280px");
+    expect(layer.style.transform).toBe("");
   });
 });
