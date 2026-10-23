@@ -52,7 +52,10 @@ export type Fill =
   | { linear: { angle: number; stops: Stop[] } }
   | { radial: { stops: Stop[] } };
 
-/** Picks one item per blob from a list: random by weight, equal shares per group, or cycling top to bottom. */
+/**
+ * Picks one item per blob from a list: random by weight, equal shares per group, or cycling top to bottom.
+ * An `even` groupSize is rounded up to a multiple of the item count, so the shares stay equal.
+ */
 export type ChoiceDist<T> =
   | { weighted: T[]; weights?: number[] }
   | { even: T[]; groupSize?: number }
@@ -122,8 +125,9 @@ export function choiceSampler<T>(dist: ChoiceDist<T>, random: Random, what = "it
   if ("even" in dist) {
     const items = nonEmpty(dist.even);
     // Default: the smallest multiple of the item count that is at least 8, so every item gets an equal share.
-    const fallback = Math.ceil(DEFAULT_GROUP_SIZE / items.length) * items.length;
-    const slots = groupSlots(groupSize(dist.groupSize, fallback), random);
+    // A groupSize given by the user is rounded up the same way; otherwise the first items would get the extra share in every group.
+    const multiple = (n: number) => Math.ceil(n / items.length) * items.length;
+    const slots = groupSlots(multiple(groupSize(dist.groupSize, DEFAULT_GROUP_SIZE)), random);
     return { items, slot: (index) => slots(index) % items.length };
   }
 

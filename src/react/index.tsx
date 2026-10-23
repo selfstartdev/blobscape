@@ -42,23 +42,30 @@ export function Blobscape({ attach = "scroll", fullBleed = false, initialHeight 
   const idPrefix = "blobscape" + useId().replace(/[^a-zA-Z0-9_-]/g, "");
   // Unmeasured until mount, so server and first client render match exactly.
   const [measured, setMeasured] = useState<Size | null>(null);
-  const [bleedWidth, setBleedWidth] = useState<number | null>(null);
+  const [bleed, setBleed] = useState<Bleed | null>(null);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const measure = () => {
-      const rect = el.getBoundingClientRect();
-      const next = { width: Math.round(rect.width), height: Math.round(rect.height) };
+      // The layout size: getBoundingClientRect includes transforms (an entrance animation's scale), and
+      // ResizeObserver doesn't fire again when only the transform changes, so a skewed size would stick.
+      const next = { width: el.offsetWidth, height: el.offsetHeight };
       setMeasured((prev) => (prev && prev.width === next.width && prev.height === next.height ? prev : next));
-      // 100vw includes the vertical scrollbar; the document's client width does not.
-      if (fullBleed) setBleedWidth(document.documentElement.clientWidth);
+      if (fullBleed) {
+        const next = bleedBox(el);
+        setBleed((prev) => (prev && prev.left === next.left && prev.width === next.width ? prev : next));
+      }
     };
     measure();
     if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(measure);
     observer.observe(el);
-    if (fullBleed) observer.observe(document.documentElement);
+    if (fullBleed) {
+      observer.observe(document.documentElement);
+      // The containing block can move sideways without the layer or the page resizing.
+      if (el.offsetParent) observer.observe(el.offsetParent);
+    }
     return () => observer.disconnect();
   }, [fullBleed]);
 
@@ -71,10 +78,9 @@ export function Blobscape({ attach = "scroll", fullBleed = false, initialHeight 
   const height = measured?.height ?? initialHeight;
   const s = useMemo(() => scene({ ...options, height }), [optionsKey, height]);
   const fluid = s.mode === "fluid" && measured !== null;
-  const rendered = useMemo(
-    () => render(s, { idPrefix, containerWidth: fluid ? measured.width : s.width }),
-    [s, idPrefix, fluid, measured?.width],
-  );
+  // Fixed mode ignores the measured width, so a width-only resize must not re-render every path.
+  const containerWidth = fluid ? measured.width : s.width;
+  const rendered = useMemo(() => render(s, { idPrefix, containerWidth }), [s, idPrefix, containerWidth]);
 
   const layer: CSSProperties = {
     position: attach === "fixed" ? "fixed" : "absolute",
@@ -85,8 +91,11 @@ export function Blobscape({ attach = "scroll", fullBleed = false, initialHeight 
     overflow: "hidden",
     zIndex: -1,
     pointerEvents: "none",
+    // Before measuring (and on the server), centering on the parent is right for the usual centered column.
     ...(fullBleed && attach === "scroll"
-      ? { left: "50%", right: "auto", width: bleedWidth ?? "100vw", transform: "translateX(-50%)" }
+      ? bleed
+        ? { left: bleed.left, right: "auto", width: bleed.width }
+        : { left: "50%", right: "auto", width: "100vw", transform: "translateX(-50%)" }
       : {}),
     ...style,
   };
@@ -129,9 +138,29 @@ export function Blobscape({ attach = "scroll", fullBleed = false, initialHeight 
   );
 }
 
+interface Bleed {
+  /** The layer's left, in px from its containing block's padding edge. */
+  left: number;
+  width: number;
+}
+
+/** Where the layer must sit to span the viewport, whatever the parent's horizontal position. */
+function bleedBox(el: HTMLElement): Bleed {
+  const block = el.offsetParent ?? document.documentElement;
+  // The padding edge, which is what `left` is measured from, in page coordinates.
+  const edge = block.getBoundingClientRect().left + block.clientLeft + window.scrollX;
+  // 100vw includes the vertical scrollbar; the document's client width does not.
+  return { left: Math.round(-edge), width: document.documentElement.clientWidth };
+}
+
 function isDev(): boolean {
-  // Bundlers replace process.env.NODE_ENV; guard for environments without `process`.
-  return typeof process !== "undefined" && process.env?.NODE_ENV !== "production";
+  // Written out in full so bundlers can replace it. Where nothing did and there's no `process`
+  // (Vite and other browser builds), reading it throws: that's development too.
+  try {
+    return process.env.NODE_ENV !== "production";
+  } catch {
+    return true;
+  }
 }
 
 const warned = new WeakSet<Element>();
@@ -142,8 +171,7 @@ function warnAboutParent(el: HTMLElement | null) {
   const cs = getComputedStyle(parent);
   const problems: string[] = [];
   if (cs.position === "static") problems.push("is not positioned (the layer will cover the wrong element)");
-  const stacking = cs.isolation === "isolate" || (cs.position !== "static" && cs.zIndex !== "auto");
-  if (!stacking) problems.push("has no stacking context (the layer can disappear behind backgrounds)");
+  if (!formsStackingContext(parent, cs)) problems.push("has no stacking context (the layer can disappear behind backgrounds)");
   if (problems.length === 0) return;
   warned.add(parent);
   console.warn(
@@ -151,4 +179,27 @@ function warnAboutParent(el: HTMLElement | null) {
       `({ position: "relative", isolation: "isolate" }).`,
     parent,
   );
+}
+
+/** The common ways an element forms a stacking context (CSS Positioned Layout, plus the properties that force one). */
+function formsStackingContext(el: Element, cs: CSSStyleDeclaration): boolean {
+  const value = (prop: string) => cs.getPropertyValue(prop).trim();
+  if (value("isolation") === "isolate") return true;
+  if (cs.position === "fixed" || cs.position === "sticky") return true;
+  if (cs.zIndex !== "auto" && cs.zIndex !== "") {
+    if (cs.position !== "static") return true;
+    // Flex and grid items take z-index without being positioned.
+    const outer = el.parentElement && getComputedStyle(el.parentElement).display;
+    if (outer && /flex|grid/.test(outer)) return true;
+  }
+  if (cs.opacity !== "" && Number(cs.opacity) < 1) return true;
+  for (const prop of ["transform", "translate", "rotate", "scale", "filter", "backdrop-filter", "perspective", "clip-path", "mask", "mask-image"]) {
+    const v = value(prop);
+    if (v !== "" && v !== "none") return true;
+  }
+  const blend = value("mix-blend-mode");
+  if (blend !== "" && blend !== "normal") return true;
+  if (/\b(layout|paint|strict|content)\b/.test(value("contain"))) return true;
+  if (/size/.test(value("container-type"))) return true;
+  return /\b(transform|translate|rotate|scale|opacity|filter|isolation|z-index|perspective|clip-path|mask)\b/.test(value("will-change"));
 }
